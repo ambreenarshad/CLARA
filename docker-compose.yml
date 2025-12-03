@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nlp-agentic-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist ChromaDB data
+      - ./chroma_db:/app/chroma_db
+      # Persist logs
+      - ./logs:/app/logs
+      # Mount source code for development (optional - comment out for production)
+      # - ./src:/app/src
+    environment:
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_WORKERS=4
+
+      # Vector Store
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+      - CHROMA_COLLECTION_NAME=feedback_embeddings
+
+      # Models
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - SPACY_MODEL=en_core_web_sm
+
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - LOG_FILE=/app/logs/app.log
+
+      # Agent Configuration
+      - AGENT_MAX_RETRIES=3
+      - AGENT_TIMEOUT=300
+      - AGENT_VERBOSE=true
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - nlp-network
+
+networks:
+  nlp-network:
+    driver: bridge
+
+volumes:
+  chroma_db:
+  logs:

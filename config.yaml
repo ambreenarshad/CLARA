@@ -1,0 +1,43 @@
+# Model Configuration
+models:
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  spacy_model: "en_core_web_sm"
+  embedding_dimension: 384
+
+# ChromaDB Configuration
+chromadb:
+  persist_directory: "./chroma_db"
+  collection_name: "feedback_embeddings"
+
+# API Configuration
+api:
+  title: "NLP Agentic AI Feedback Analysis System"
+  description: "Multi-agent system for feedback analysis with RAG capabilities"
+  version: "1.0.0"
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:8000"
+
+# Agent Configuration
+agents:
+  max_retries: 3
+  timeout: 300  # seconds
+  verbose: true
+
+# NLP Processing
+nlp:
+  min_topic_size: 5
+  max_topics: 10
+  sentiment_threshold: 0.05
+  summary_ratio: 0.2  # Summarize to 20% of original length
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "json"
+  log_file: "./logs/app.log"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
