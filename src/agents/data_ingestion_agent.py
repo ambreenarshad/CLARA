@@ -4,10 +4,8 @@ import re
 import uuid
 from typing import Dict, List, Optional
 
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.prompts import PromptTemplate
-from langchain.tools import Tool
-from langchain_community.llms.fake import FakeListLLM
+from langchain_core.prompts import PromptTemplate
+from langchain_core.tools import Tool
 
 from src.services.vectorstore import get_vector_store_service
 from src.utils.config import get_config

@@ -143,15 +143,19 @@ project_root/
 ## 🚀 Quick Start Commands
 
 ### Setup
-```bash
-# 1. Install dependencies
+```powershell
+# 1. Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# 2. Install dependencies
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 
-# 2. Create environment file
-cp .env.example .env
+# 3. Create environment file
+Copy-Item .env.example .env
 
-# 3. Run server
+# 4. Run server
 python -m uvicorn src.api.main:app --reload
 ```
 
