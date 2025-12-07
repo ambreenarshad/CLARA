@@ -56,7 +56,7 @@ chroma_db/
 
 # Models cache
 .cache/
-models/
+
 
 # spaCy models (downloaded at runtime)
 *.spacy

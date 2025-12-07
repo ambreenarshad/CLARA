@@ -16,6 +16,10 @@ A production-grade multi-agent AI system for feedback analysis using LangChain, 
 - 📝 **Text Summarization** - TextRank extractive summaries
 - 🔎 **RAG Retrieval** - Semantic search with ChromaDB
 - 🚀 **FastAPI Backend** - Async, high-performance REST API
+- 🎨 **Streamlit UI Dashboard** - Modern, interactive web interface
+- 📤 **Multiple Upload Formats** - Text, CSV, and JSON support
+- 📈 **Interactive Visualizations** - Charts, graphs, and insights
+- 📥 **Export Capabilities** - Download results as JSON, CSV, or PDF
 - 🧪 **Comprehensive Testing** - Unit + integration tests
 - 🐳 **Docker Ready** - Complete containerization
 - 📚 **API Documentation** - Interactive Swagger UI
@@ -26,6 +30,8 @@ A production-grade multi-agent AI system for feedback analysis using LangChain, 
 |-----------|------------|
 | **Agent Framework** | LangChain |
 | **API** | FastAPI (Async) |
+| **UI** | Streamlit |
+| **Visualizations** | Plotly + Altair |
 | **Vector Store** | ChromaDB |
 | **Embeddings** | sentence-transformers (all-MiniLM-L6-v2) |
 | **Sentiment** | VADER |
@@ -68,11 +74,29 @@ Copy-Item .env.example .env  # Windows
 ```
 
 4. **Run the application**
+
+**Option A: Run with UI (Recommended)**
+```powershell
+python scripts/start_app.py
+```
+This starts both the FastAPI backend and Streamlit UI automatically.
+
+**Option B: Run API only**
 ```powershell
 python -m uvicorn src.api.main:app --reload
 ```
 
+**Option C: Run UI and API separately** (for development)
+```powershell
+# Terminal 1: Start API
+python -m uvicorn src.api.main:app --reload
+
+# Terminal 2: Start UI
+streamlit run src/ui/app.py
+```
+
 5. **Access the system**
+- **Streamlit UI**: http://localhost:8501 ⭐ (Main Interface)
 - **API Base**: http://localhost:8000
 - **Interactive Docs**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
@@ -106,6 +130,210 @@ curl http://localhost:8000/health
 | `/api/v1/process` | POST | Upload + Analyze (one-step) |
 | `/api/v1/feedback/{id}` | GET | Get feedback summary |
 | `/api/v1/statistics` | GET | System statistics |
+
+## 🎨 Streamlit UI Dashboard
+
+### Overview
+
+CLARA NLP now includes a comprehensive, modern web interface built with Streamlit that makes feedback analysis accessible to everyone - no coding required!
+
+### UI Features
+
+#### 📊 Dashboard
+- **Quick Stats**: Total batches, feedback items, analyses performed
+- **Recent Activity**: View recent uploads and analyses
+- **Analysis History**: Access past analysis results
+- **Quick Actions**: One-click navigation to key features
+
+#### 📤 Upload Page
+Upload feedback using three different methods:
+
+1. **Manual Text Entry**
+   - Paste feedback line-by-line
+   - Real-time validation
+   - Preview before upload
+
+2. **CSV File Upload**
+   - Auto-detect feedback column
+   - Extract metadata from additional columns
+   - Support for multiple encodings (UTF-8, Latin-1, etc.)
+   - Preview with sampling
+
+3. **JSON File Upload**
+   - Support for list of strings or objects
+   - Automatic metadata extraction
+   - Schema validation
+   - Format examples included
+
+**Features:**
+- ✅ Live validation (minimum 3 words per feedback)
+- ✅ Duplicate detection
+- ✅ File size limits (200MB max)
+- ✅ Preview before submission
+- ✅ Batch tracking with unique IDs
+
+#### 🔍 Analysis Page
+Execute and configure analysis with full control:
+
+- **Batch Selection**: Choose from uploaded feedback batches
+- **Analysis Options**:
+  - Include/exclude summary generation
+  - Include/exclude topic modeling
+  - Adjust max topics (1-20)
+  - Configure min topic size
+  - Set sentiment threshold
+
+- **Results Display**:
+  - **Overview Tab**: Key metrics and sentiment overview
+  - **Sentiment Tab**: Detailed scores and distribution
+  - **Topics Tab**: Discovered topics with keywords
+  - **Report Tab**: Generated insights and recommendations
+
+- **Export Options**:
+  - Download as JSON
+  - Export to CSV (coming soon)
+  - Generate PDF report (coming soon)
+
+#### 📈 Visualizations Page
+Interactive charts and visual insights:
+
+**Sentiment Visualizations:**
+- Pie chart: Sentiment distribution (Positive/Neutral/Negative)
+- Bar chart: Sentiment scores (Compound, Positive, Negative, Neutral)
+- Color-coded indicators
+
+**Topic Visualizations:**
+- Bar chart: Topic sizes (document count per topic)
+- Horizontal bar chart: Top keywords per topic
+- Interactive topic selector
+- Hover details
+
+**Interactive Features:**
+- Zoom and pan
+- Download charts as PNG
+- Responsive design
+- Real-time updates
+
+#### 🔎 Search & Filter Page
+Advanced search capabilities:
+
+- **Search Types**:
+  - Keyword search: Exact match
+  - Semantic search: AI-powered meaning-based search
+
+- **Filters**:
+  - Feedback batch selection
+  - Sentiment classification
+  - Topic assignment
+  - Date range (if available)
+  - Custom metadata fields
+
+- **Results**:
+  - Paginated display (25 results per page)
+  - Sort by relevance, sentiment, or date
+  - Export filtered results
+
+#### ⚙️ System Health Page
+Monitor system status and configuration:
+
+- **Health Status**:
+  - API connection status
+  - Embedding service health
+  - Vector store status
+  - Document count
+
+- **System Statistics**:
+  - Session statistics
+  - Database metrics
+  - Cache status
+
+- **Configuration**:
+  - API settings
+  - Model information
+  - NLP parameters
+  - Vector store config
+
+- **Actions**:
+  - Refresh status
+  - Clear session data
+  - View API documentation
+
+### Getting Started with UI
+
+1. **Start the application**:
+   ```bash
+   python scripts/start_app.py
+   ```
+
+2. **Open browser** to http://localhost:8501
+
+3. **Upload feedback**:
+   - Navigate to "Upload" page
+   - Choose upload method (Text/CSV/JSON)
+   - Submit your data
+
+4. **Analyze**:
+   - Go to "Analysis" page
+   - Select your uploaded batch
+   - Configure options
+   - Click "Start Analysis"
+
+5. **Explore results**:
+   - View results in tabs (Overview/Sentiment/Topics/Report)
+   - Navigate to "Visualize" for interactive charts
+   - Use "Search" to filter and find specific feedback
+
+### UI Screenshots
+
+The UI features a modern, clean design with:
+- 🎨 Professional color scheme (Blue primary, Green positive, Red negative)
+- 📱 Responsive layout
+- 🌙 Clear typography
+- ⚡ Fast, reactive updates
+- 🎯 Intuitive navigation
+
+### UI Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│   Streamlit UI (Port 8501)                  │
+│   ├── 📊 Dashboard (Home)                    │
+│   ├── 📤 Upload (Text/CSV/JSON)              │
+│   ├── 🔍 Analysis (Execute & View)           │
+│   ├── 📈 Visualize (Charts)                  │
+│   ├── 🔎 Search (Filter & Find)              │
+│   └── ⚙️ System (Health & Config)            │
+└──────────────┬──────────────────────────────┘
+               │ HTTP Requests (httpx)
+               ▼
+┌─────────────────────────────────────────────┐
+│   FastAPI Backend (Port 8000)               │
+│   └── Multi-Agent NLP System                │
+└─────────────────────────────────────────────┘
+```
+
+### UI File Structure
+
+```
+src/ui/
+├── app.py                    # Main application
+├── pages/                    # Multi-page app
+│   ├── 01_📊_Dashboard.py
+│   ├── 02_📤_Upload.py
+│   ├── 03_🔍_Analysis.py
+│   ├── 04_📈_Visualize.py
+│   ├── 05_🔎_Search.py
+│   └── 06_⚙️_System.py
+├── components/               # Reusable components
+│   ├── api_client.py
+│   ├── upload_handlers.py
+│   ├── result_displays.py
+│   └── visualizations.py
+└── utils/                    # Utilities
+    ├── session_state.py
+    ├── validators.py
+    └── formatters.py
+```
 
 ## 💡 Usage Examples
 
@@ -178,7 +406,7 @@ print(f"Insights: {result['report']['key_insights']}")
 ## 📂 Project Structure
 
 ```
-project_root/
+CLARA/
 ├── src/
 │   ├── agents/              # 4 LangChain agents
 │   │   ├── data_ingestion_agent.py
@@ -189,6 +417,24 @@ project_root/
 │   ├── api/                 # FastAPI application
 │   │   ├── main.py
 │   │   └── routes.py
+│   ├── ui/                  # Streamlit UI ⭐ NEW
+│   │   ├── app.py           # Main app
+│   │   ├── pages/           # Multi-page interface
+│   │   │   ├── 01_📊_Dashboard.py
+│   │   │   ├── 02_📤_Upload.py
+│   │   │   ├── 03_🔍_Analysis.py
+│   │   │   ├── 04_📈_Visualize.py
+│   │   │   ├── 05_🔎_Search.py
+│   │   │   └── 06_⚙️_System.py
+│   │   ├── components/      # UI components
+│   │   │   ├── api_client.py
+│   │   │   ├── upload_handlers.py
+│   │   │   ├── result_displays.py
+│   │   │   └── visualizations.py
+│   │   └── utils/           # UI utilities
+│   │       ├── session_state.py
+│   │       ├── validators.py
+│   │       └── formatters.py
 │   ├── models/              # Pydantic schemas
 │   │   └── schemas.py
 │   ├── services/            # Core services
@@ -199,11 +445,15 @@ project_root/
 │       ├── config.py
 │       ├── exceptions.py
 │       └── logging_config.py
+├── scripts/                 # Utility scripts ⭐ NEW
+│   └── start_app.py         # Unified startup
 ├── tests/                   # Complete test suite
 │   ├── conftest.py
 │   ├── test_nlp_processors.py
 │   ├── test_agents.py
 │   └── test_api.py
+├── .streamlit/              # Streamlit config ⭐ NEW
+│   └── config.toml
 ├── test_data/               # Sample data
 │   └── sample_feedback.json
 ├── docs/                    # Documentation
