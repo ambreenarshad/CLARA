@@ -93,7 +93,7 @@ async def analyze_feedback(request: AnalysisRequest) -> Dict:
         request: Analysis request with feedback ID
 
     Returns:
-        Dict: Complete analysis results with sentiment, topics, and insights
+        Dict: Complete analysis results with emotions, topics, and insights
 
     Raises:
         HTTPException: If analysis fails or feedback ID not found

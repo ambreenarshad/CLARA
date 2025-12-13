@@ -16,7 +16,7 @@ initialize_session_state()
 
 # Page header
 st.title("🔍 Analysis")
-st.markdown("Analyze uploaded feedback to extract sentiment, topics, and insights.")
+st.markdown("Analyze uploaded feedback to extract emotions, topics, and insights.")
 st.markdown("---")
 
 # Check if there are uploaded feedback batches
@@ -108,13 +108,13 @@ with st.expander("⚙️ Advanced Options"):
         )
 
     with col2:
-        sentiment_threshold = st.number_input(
-            "Sentiment Threshold",
+        emotion_threshold = st.number_input(
+            "Emotion Threshold",
             min_value=0.0,
             max_value=1.0,
-            value=0.05,
+            value=0.15,
             step=0.01,
-            help="Threshold for neutral sentiment classification"
+            help="Minimum score to consider emotion present"
         )
 
 # Build options dictionary
@@ -123,7 +123,7 @@ analysis_options = {
     'include_topics': include_topics,
     'max_topics': max_topics,
     'min_topic_size': min_topic_size,
-    'sentiment_threshold': sentiment_threshold
+    'emotion_threshold': emotion_threshold
 }
 
 st.markdown("---")
@@ -217,7 +217,7 @@ else:
 
     **What happens during analysis:**
     1. 📊 **Data Ingestion** - Validates and cleans feedback
-    2. 😊 **Sentiment Analysis** - Analyzes emotional tone using VADER
+    2. 😊 **Emotion Analysis** - Analyzes emotions using DistilRoBERTa
     3. 🏷️ **Topic Modeling** - Discovers themes using BERTopic
     4. 📝 **Synthesis** - Generates summary and insights using TextRank
     """)
@@ -226,7 +226,7 @@ else:
 st.markdown("---")
 st.caption("""
 **Analysis powered by:**
-- VADER Sentiment Analysis
+- DistilRoBERTa Emotion Analysis (6 emotions)
 - BERTopic Topic Modeling
 - TextRank Summarization
 - Multi-Agent Orchestration

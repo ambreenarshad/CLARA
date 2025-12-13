@@ -301,3 +301,133 @@ def format_topic_label(topic_id: int, keywords: list) -> str:
     top_words = keywords[:3] if len(keywords) >= 3 else keywords
 
     return f"Topic {topic_id}: {', '.join(top_words)}"
+
+
+# ===== EMOTION-SPECIFIC FORMATTERS =====
+
+def format_emotion_label(emotion: str) -> str:
+    """
+    Format emotion label with proper capitalization
+
+    Args:
+        emotion: Emotion name (joy, sadness, anger, fear, surprise, neutral)
+
+    Returns:
+        Formatted emotion label
+    """
+    return emotion.capitalize()
+
+
+def format_emotion_emoji(emotion: str) -> str:
+    """
+    Get emoji representing emotion
+
+    Args:
+        emotion: Emotion name
+
+    Returns:
+        Emoji string
+    """
+    emotion_emojis = {
+        "joy": "😊",
+        "sadness": "😢",
+        "anger": "😠",
+        "fear": "😨",
+        "surprise": "😲",
+        "neutral": "😐"
+    }
+    return emotion_emojis.get(emotion.lower(), "😐")
+
+
+def format_emotion_color(emotion: str) -> str:
+    """
+    Get color code for emotion
+
+    Args:
+        emotion: Emotion name
+
+    Returns:
+        Color hex code
+    """
+    emotion_colors = {
+        "joy": "#4CAF50",      # Green
+        "sadness": "#2196F3",  # Blue
+        "anger": "#F44336",    # Red
+        "fear": "#9C27B0",     # Purple
+        "surprise": "#FF9800", # Orange
+        "neutral": "#9E9E9E"   # Gray
+    }
+    return emotion_colors.get(emotion.lower(), "#9E9E9E")
+
+
+def format_emotion_with_emoji(emotion: str, score: float = None) -> str:
+    """
+    Format emotion with emoji and optional score
+
+    Args:
+        emotion: Emotion name
+        score: Optional emotion score (0-1)
+
+    Returns:
+        Formatted string
+    """
+    emoji = format_emotion_emoji(emotion)
+    label = format_emotion_label(emotion)
+
+    if score is not None:
+        return f"{emoji} {label} ({score:.2%})"
+    return f"{emoji} {label}"
+
+
+def color_code_emotion_html(emotion: str, score: float = None) -> str:
+    """
+    Create HTML span with color-coded emotion
+
+    Args:
+        emotion: Emotion name
+        score: Optional emotion score
+
+    Returns:
+        HTML string
+    """
+    color = format_emotion_color(emotion)
+    emoji = format_emotion_emoji(emotion)
+    label = format_emotion_label(emotion)
+
+    if score is not None:
+        return f'<span style="color: {color}; font-weight: bold;">{emoji} {label} ({score:.1%})</span>'
+    return f'<span style="color: {color}; font-weight: bold;">{emoji} {label}</span>'
+
+
+def get_all_emotion_colors() -> dict:
+    """
+    Get all emotion color mappings
+
+    Returns:
+        Dict mapping emotion names to color codes
+    """
+    return {
+        "joy": "#4CAF50",
+        "sadness": "#2196F3",
+        "anger": "#F44336",
+        "fear": "#9C27B0",
+        "surprise": "#FF9800",
+        "neutral": "#9E9E9E"
+    }
+
+
+def get_all_emotion_emojis() -> dict:
+    """
+    Get all emotion emoji mappings
+
+    Returns:
+        Dict mapping emotion names to emojis
+    """
+    return {
+        "joy": "😊",
+        "sadness": "😢",
+        "anger": "😠",
+        "fear": "😨",
+        "surprise": "😲",
+        "neutral": "😐"
+    }

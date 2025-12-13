@@ -16,6 +16,8 @@ vaderSentiment>=3.3.2
 bertopic>=0.16.0
 spacy>=3.7.0
 pytextrank>=3.2.5
+transformers>=4.35.0
+torch>=2.0.0
 
 # Data Processing
 pandas>=2.2.0

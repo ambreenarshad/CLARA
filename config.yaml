@@ -3,6 +3,8 @@ models:
   embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
   spacy_model: "en_core_web_sm"
   embedding_dimension: 384
+  emotion_model: "j-hartmann/emotion-english-distilroberta-base"
+  emotion_categories: ["joy", "sadness", "anger", "fear", "surprise", "neutral"]
 
 # ChromaDB Configuration
 chromadb:
@@ -32,6 +34,7 @@ nlp:
   min_topic_size: 5
   max_topics: 10
   sentiment_threshold: 0.05
+  emotion_threshold: 0.15  # Minimum score to consider emotion present
   summary_ratio: 0.2  # Summarize to 20% of original length
 
 # Logging Configuration

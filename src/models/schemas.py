@@ -97,31 +97,45 @@ class FeedbackUploadResponse(BaseModel):
     }
 
 
-class SentimentAnalysisResult(BaseModel):
-    """Sentiment analysis results."""
+class EmotionAnalysisResult(BaseModel):
+    """Emotion analysis results."""
 
-    average_compound: float = Field(..., description="Average compound sentiment score")
-    average_positive: float = Field(..., description="Average positive score")
-    average_negative: float = Field(..., description="Average negative score")
-    average_neutral: float = Field(..., description="Average neutral score")
-    sentiment_distribution: Dict[str, int] = Field(
+    average_scores: Dict[str, float] = Field(
         ...,
-        description="Distribution of sentiment labels",
+        description="Average scores for each emotion (joy, sadness, anger, fear, surprise, neutral)",
+    )
+    emotion_distribution: Dict[str, int] = Field(
+        ...,
+        description="Count of dominant emotion for each feedback",
+    )
+    dominant_emotion: str = Field(..., description="Overall dominant emotion")
+    emotion_diversity: float = Field(
+        ...,
+        description="Emotion diversity score (0-1, higher = more diverse)",
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "average_compound": 0.25,
-                    "average_positive": 0.35,
-                    "average_negative": 0.10,
-                    "average_neutral": 0.55,
-                    "sentiment_distribution": {
-                        "positive": 75,
-                        "neutral": 50,
-                        "negative": 25,
+                    "average_scores": {
+                        "joy": 0.35,
+                        "sadness": 0.15,
+                        "anger": 0.10,
+                        "fear": 0.12,
+                        "surprise": 0.08,
+                        "neutral": 0.20,
                     },
+                    "emotion_distribution": {
+                        "joy": 45,
+                        "sadness": 20,
+                        "anger": 10,
+                        "fear": 8,
+                        "surprise": 7,
+                        "neutral": 10,
+                    },
+                    "dominant_emotion": "joy",
+                    "emotion_diversity": 0.75,
                 }
             ]
         }
@@ -173,7 +187,7 @@ class AnalysisResponse(BaseModel):
 
     feedback_id: str = Field(..., description="Feedback batch ID")
     status: str = Field(..., description="Analysis status")
-    sentiment: SentimentAnalysisResult = Field(..., description="Sentiment analysis results")
+    emotions: EmotionAnalysisResult = Field(..., description="Emotion analysis results")
     topics: TopicModelingResult = Field(..., description="Topic modeling results")
     summary: Optional[str] = Field(None, description="Overall summary")
     key_insights: List[str] = Field(
@@ -188,18 +202,30 @@ class AnalysisResponse(BaseModel):
                 {
                     "feedback_id": "feedback_12345",
                     "status": "completed",
-                    "sentiment": {
-                        "average_compound": 0.25,
-                        "sentiment_distribution": {
-                            "positive": 75,
-                            "neutral": 50,
-                            "negative": 25,
+                    "emotions": {
+                        "average_scores": {
+                            "joy": 0.45,
+                            "sadness": 0.10,
+                            "anger": 0.05,
+                            "fear": 0.08,
+                            "surprise": 0.12,
+                            "neutral": 0.20,
                         },
+                        "emotion_distribution": {
+                            "joy": 60,
+                            "sadness": 15,
+                            "anger": 5,
+                            "fear": 8,
+                            "surprise": 7,
+                            "neutral": 5,
+                        },
+                        "dominant_emotion": "joy",
+                        "emotion_diversity": 0.68,
                     },
                     "topics": {"num_topics": 5, "outliers": 8},
-                    "summary": "Overall positive feedback about product quality...",
+                    "summary": "Overall joyful feedback about product quality...",
                     "key_insights": [
-                        "75% of feedback is positive",
+                        "Dominant emotion: joy (60% of feedback)",
                         "Main concerns about delivery time",
                     ],
                     "timestamp": "2025-12-03T10:35:00Z",

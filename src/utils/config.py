@@ -16,6 +16,8 @@ class ModelConfig(BaseSettings):
     embedding_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     spacy_model: str = Field(default="en_core_web_sm")
     embedding_dimension: int = Field(default=384)
+    emotion_model: str = Field(default="j-hartmann/emotion-english-distilroberta-base")
+    emotion_categories: List[str] = Field(default=["joy", "sadness", "anger", "fear", "surprise", "neutral"])
 
 
 class ChromaDBConfig(BaseSettings):
@@ -55,6 +57,7 @@ class NLPConfig(BaseSettings):
     min_topic_size: int = Field(default=5)
     max_topics: int = Field(default=10)
     sentiment_threshold: float = Field(default=0.05)
+    emotion_threshold: float = Field(default=0.15)
     summary_ratio: float = Field(default=0.2)
 
 

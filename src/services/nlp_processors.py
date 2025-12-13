@@ -1,4 +1,4 @@
-"""NLP processing services: sentiment analysis, topic modeling, and summarization."""
+"""NLP processing services: emotion analysis, topic modeling, and summarization."""
 
 from typing import Dict, List, Optional, Tuple
 
@@ -7,7 +7,9 @@ import pandas as pd
 import spacy
 import pytextrank
 from bertopic import BERTopic
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+import torch.nn.functional as F
 
 from src.utils.config import get_config
 from src.utils.logging_config import get_logger
@@ -15,96 +17,194 @@ from src.utils.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-class SentimentAnalyzer:
-    """VADER-based sentiment analysis service."""
+class EmotionAnalyzer:
+    """Hugging Face transformer-based emotion analysis service."""
 
-    def __init__(self):
-        """Initialize VADER sentiment analyzer."""
-        logger.info("Initializing VADER sentiment analyzer")
-        self.analyzer = SentimentIntensityAnalyzer()
-        logger.info("VADER sentiment analyzer ready")
+    def __init__(self, model_name: Optional[str] = None):
+        """Initialize Hugging Face emotion analyzer."""
+        config = get_config()
+        self.model_name = model_name or config.models.emotion_model
+        self.emotion_categories = config.models.emotion_categories
 
-    def analyze_sentiment(self, text: str) -> Dict[str, float]:
+        logger.info(f"Initializing emotion analyzer with model: {self.model_name}")
+
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model.to(self.device)
+            self.model.eval()
+
+            logger.info(f"Emotion analyzer ready on device: {self.device}")
+        except Exception as e:
+            logger.error(f"Error initializing emotion analyzer: {str(e)}")
+            raise
+
+    def analyze_emotion(self, text: str) -> Dict[str, float]:
         """
-        Analyze sentiment of a single text.
+        Analyze emotions of a single text.
 
         Args:
             text: Input text to analyze
 
         Returns:
-            Dict: Sentiment scores (negative, neutral, positive, compound)
+            Dict: Emotion scores for 6 emotions + dominant emotion
         """
         if not text or not text.strip():
-            return {"neg": 0.0, "neu": 1.0, "pos": 0.0, "compound": 0.0}
+            # Return neutral when empty
+            return {
+                "joy": 0.0,
+                "sadness": 0.0,
+                "anger": 0.0,
+                "fear": 0.0,
+                "surprise": 0.0,
+                "neutral": 1.0,
+                "dominant_emotion": "neutral"
+            }
 
         try:
-            scores = self.analyzer.polarity_scores(text)
-            return scores
-        except Exception as e:
-            logger.error(f"Error analyzing sentiment: {str(e)}")
-            return {"neg": 0.0, "neu": 1.0, "pos": 0.0, "compound": 0.0}
+            # Tokenize input
+            inputs = self.tokenizer(
+                text,
+                return_tensors="pt",
+                truncation=True,
+                max_length=512,
+                padding=True
+            ).to(self.device)
 
-    def analyze_sentiments(self, texts: List[str]) -> List[Dict[str, float]]:
+            # Get predictions
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                logits = outputs.logits
+                probabilities = F.softmax(logits, dim=-1)[0]
+
+            # Convert to emotion scores
+            emotion_scores = {
+                emotion: float(probabilities[i].cpu().item())
+                for i, emotion in enumerate(self.emotion_categories)
+            }
+
+            # Get dominant emotion
+            dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])[0]
+            emotion_scores["dominant_emotion"] = dominant_emotion
+
+            return emotion_scores
+
+        except Exception as e:
+            logger.error(f"Error analyzing emotion: {str(e)}")
+            return {
+                "joy": 0.0,
+                "sadness": 0.0,
+                "anger": 0.0,
+                "fear": 0.0,
+                "surprise": 0.0,
+                "neutral": 1.0,
+                "dominant_emotion": "neutral"
+            }
+
+    def analyze_emotions(self, texts: List[str]) -> List[Dict[str, float]]:
         """
-        Analyze sentiment of multiple texts.
+        Analyze emotions of multiple texts.
 
         Args:
             texts: List of input texts
 
         Returns:
-            List[Dict]: List of sentiment scores
+            List[Dict]: List of emotion scores
         """
-        logger.info(f"Analyzing sentiment for {len(texts)} texts")
-        results = [self.analyze_sentiment(text) for text in texts]
-        logger.info("Sentiment analysis complete")
+        logger.info(f"Analyzing emotions for {len(texts)} texts")
+        results = [self.analyze_emotion(text) for text in texts]
+        logger.info("Emotion analysis complete")
         return results
 
-    def get_sentiment_label(self, compound_score: float) -> str:
+    def get_dominant_emotion(self, emotion_scores: Dict[str, float]) -> str:
         """
-        Convert compound score to sentiment label.
+        Get the dominant emotion from scores.
 
         Args:
-            compound_score: VADER compound score
+            emotion_scores: Dict of emotion scores
 
         Returns:
-            str: Sentiment label (positive, negative, neutral)
+            str: Dominant emotion label
         """
-        config = get_config()
-        threshold = config.nlp.sentiment_threshold
+        # Filter out non-emotion keys
+        emotions_only = {k: v for k, v in emotion_scores.items() if k != "dominant_emotion"}
+        return max(emotions_only.items(), key=lambda x: x[1])[0]
 
-        if compound_score >= threshold:
-            return "positive"
-        elif compound_score <= -threshold:
-            return "negative"
-        else:
-            return "neutral"
-
-    def aggregate_sentiments(self, sentiments: List[Dict[str, float]]) -> Dict:
+    def aggregate_emotions(self, emotions: List[Dict[str, float]]) -> Dict:
         """
-        Aggregate sentiment scores across multiple texts.
+        Aggregate emotion scores across multiple texts.
 
         Args:
-            sentiments: List of sentiment score dicts
+            emotions: List of emotion score dicts
 
         Returns:
             Dict: Aggregated statistics
         """
-        if not sentiments:
+        if not emotions:
             return {}
 
-        df = pd.DataFrame(sentiments)
+        # Remove dominant_emotion key for aggregation
+        emotions_clean = []
+        for e in emotions:
+            emotions_clean.append({k: v for k, v in e.items() if k != "dominant_emotion"})
+
+        df = pd.DataFrame(emotions_clean)
+
+        # Calculate average scores for each emotion
+        average_scores = {
+            emotion: float(df[emotion].mean())
+            for emotion in self.emotion_categories
+        }
+
+        # Calculate emotion distribution (count of dominant emotion)
+        emotion_distribution = {}
+        for emotion in self.emotion_categories:
+            count = sum(1 for e in emotions if e.get("dominant_emotion") == emotion)
+            emotion_distribution[emotion] = int(count)
+
+        # Get overall dominant emotion
+        dominant_emotion = max(average_scores.items(), key=lambda x: x[1])[0]
+
+        # Calculate emotion diversity (Shannon entropy)
+        emotion_diversity = self._calculate_entropy(list(average_scores.values()))
 
         return {
-            "average_compound": float(df["compound"].mean()),
-            "average_positive": float(df["pos"].mean()),
-            "average_negative": float(df["neg"].mean()),
-            "average_neutral": float(df["neu"].mean()),
-            "sentiment_distribution": {
-                "positive": int((df["compound"] >= 0.05).sum()),
-                "neutral": int(((df["compound"] > -0.05) & (df["compound"] < 0.05)).sum()),
-                "negative": int((df["compound"] <= -0.05).sum()),
-            },
+            "average_scores": average_scores,
+            "emotion_distribution": emotion_distribution,
+            "dominant_emotion": dominant_emotion,
+            "emotion_diversity": float(emotion_diversity)
         }
+
+    def _calculate_entropy(self, probabilities: List[float]) -> float:
+        """
+        Calculate Shannon entropy for emotion diversity.
+
+        Args:
+            probabilities: List of emotion probabilities
+
+        Returns:
+            float: Entropy value (0-1 normalized)
+        """
+        try:
+            # Normalize probabilities
+            total = sum(probabilities)
+            if total == 0:
+                return 0.0
+
+            probs = [p / total for p in probabilities]
+
+            # Calculate entropy
+            entropy = -sum(p * np.log(p + 1e-10) for p in probs if p > 0)
+
+            # Normalize by max entropy (log of number of emotions)
+            max_entropy = np.log(len(probabilities))
+            normalized_entropy = entropy / max_entropy if max_entropy > 0 else 0.0
+
+            return float(normalized_entropy)
+        except Exception as e:
+            logger.error(f"Error calculating entropy: {str(e)}")
+            return 0.0
 
 
 class TopicModeler:
@@ -329,17 +429,17 @@ class TextSummarizer:
 
 
 # Global NLP service instances
-_sentiment_analyzer: Optional[SentimentAnalyzer] = None
+_emotion_analyzer: Optional[EmotionAnalyzer] = None
 _topic_modeler: Optional[TopicModeler] = None
 _text_summarizer: Optional[TextSummarizer] = None
 
 
-def get_sentiment_analyzer() -> SentimentAnalyzer:
-    """Get global sentiment analyzer instance."""
-    global _sentiment_analyzer
-    if _sentiment_analyzer is None:
-        _sentiment_analyzer = SentimentAnalyzer()
-    return _sentiment_analyzer
+def get_emotion_analyzer() -> EmotionAnalyzer:
+    """Get global emotion analyzer instance."""
+    global _emotion_analyzer
+    if _emotion_analyzer is None:
+        _emotion_analyzer = EmotionAnalyzer()
+    return _emotion_analyzer
 
 
 def get_topic_modeler() -> TopicModeler:

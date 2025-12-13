@@ -56,59 +56,69 @@ class SynthesisAgent:
 
             return summary
 
-    def synthesize_sentiment_insights(self, sentiment_results: Dict) -> List[str]:
+    def synthesize_emotion_insights(self, emotion_results: Dict) -> List[str]:
         """
-        Generate insights from sentiment analysis results.
+        Generate insights from emotion analysis results.
 
         Args:
-            sentiment_results: Sentiment analysis results
+            emotion_results: Emotion analysis results
 
         Returns:
-            List[str]: List of sentiment insights
+            List[str]: List of emotion insights
         """
         insights = []
 
-        if not sentiment_results:
+        if not emotion_results:
             return insights
 
-        # Overall sentiment
-        avg_compound = sentiment_results.get("average_compound", 0)
-        if avg_compound > 0.5:
-            insights.append("Overwhelmingly positive customer sentiment detected")
-        elif avg_compound > 0.1:
-            insights.append("Generally positive customer sentiment")
-        elif avg_compound < -0.5:
-            insights.append("Significant negative sentiment requiring attention")
-        elif avg_compound < -0.1:
-            insights.append("Moderate negative sentiment detected")
-        else:
-            insights.append("Neutral sentiment overall")
+        # Dominant emotion
+        dominant = emotion_results.get("dominant_emotion", "neutral")
+        dist = emotion_results.get("emotion_distribution", {})
+        avg_scores = emotion_results.get("average_scores", {})
+        diversity = emotion_results.get("emotion_diversity", 0)
 
-        # Distribution analysis
-        dist = sentiment_results.get("sentiment_distribution", {})
         total = sum(dist.values())
 
         if total > 0:
-            pos_pct = (dist.get("positive", 0) / total) * 100
-            neg_pct = (dist.get("negative", 0) / total) * 100
-            neu_pct = (dist.get("neutral", 0) / total) * 100
+            # Primary emotion insight
+            dominant_count = dist.get(dominant, 0)
+            dominant_pct = (dominant_count / total) * 100
 
-            insights.append(
-                f"Sentiment breakdown: {pos_pct:.1f}% positive, "
-                f"{neu_pct:.1f}% neutral, {neg_pct:.1f}% negative"
-            )
-
-            # Highlight concerns
-            if neg_pct > 30:
-                insights.append(
-                    f"⚠️ High proportion of negative feedback ({neg_pct:.1f}%) needs investigation"
+            if dominant_pct > 50:
+                insights.append(f"Dominant emotion: {dominant.capitalize()} ({dominant_pct:.1f}% of feedback)")
+            else:
+                # Show top emotions
+                sorted_emotions = sorted(dist.items(), key=lambda x: x[1], reverse=True)
+                top_3 = sorted_emotions[:3]
+                emotion_summary = ", ".join(
+                    f"{e.capitalize()} ({(c/total)*100:.1f}%)"
+                    for e, c in top_3
                 )
+                insights.append(f"Mixed emotions detected: {emotion_summary}")
 
-            # Highlight strengths
-            if pos_pct > 70:
-                insights.append(
-                    f"✓ Strong positive reception ({pos_pct:.1f}%)"
-                )
+            # Specific emotion highlights
+            joy_pct = (dist.get("joy", 0) / total) * 100
+            sadness_pct = (dist.get("sadness", 0) / total) * 100
+            anger_pct = (dist.get("anger", 0) / total) * 100
+            fear_pct = (dist.get("fear", 0) / total) * 100
+
+            if joy_pct > 40:
+                insights.append(f"✓ High levels of joy and satisfaction ({joy_pct:.1f}%)")
+
+            if sadness_pct > 25:
+                insights.append(f"Notable sadness detected ({sadness_pct:.1f}%) - investigate causes")
+
+            if anger_pct > 20:
+                insights.append(f"⚠️ Significant anger present ({anger_pct:.1f}%) - requires immediate attention")
+
+            if fear_pct > 20:
+                insights.append(f"Fear/anxiety detected ({fear_pct:.1f}%) - address concerns")
+
+        # Emotion diversity insight
+        if diversity > 0.75:
+            insights.append("High emotional diversity - wide range of customer experiences")
+        elif diversity < 0.3:
+            insights.append("Low emotional diversity - consistent customer experience")
 
         return insights
 
@@ -170,14 +180,14 @@ class SynthesisAgent:
 
     def generate_recommendations(
         self,
-        sentiment_results: Dict,
+        emotion_results: Dict,
         topic_results: Dict,
     ) -> List[str]:
         """
         Generate actionable recommendations based on analysis.
 
         Args:
-            sentiment_results: Sentiment analysis results
+            emotion_results: Emotion analysis results
             topic_results: Topic modeling results
 
         Returns:
@@ -185,22 +195,37 @@ class SynthesisAgent:
         """
         recommendations = []
 
-        # Sentiment-based recommendations
-        if sentiment_results:
-            avg_compound = sentiment_results.get("average_compound", 0)
-            dist = sentiment_results.get("sentiment_distribution", {})
+        # Emotion-based recommendations
+        if emotion_results:
+            dist = emotion_results.get("emotion_distribution", {})
+            avg_scores = emotion_results.get("average_scores", {})
             total = sum(dist.values())
-            neg_pct = (dist.get("negative", 0) / total) * 100 if total > 0 else 0
 
-            if neg_pct > 25:
-                recommendations.append(
-                    "Priority: Address negative feedback themes to improve satisfaction"
-                )
+            if total > 0:
+                anger_pct = (dist.get("anger", 0) / total) * 100
+                sadness_pct = (dist.get("sadness", 0) / total) * 100
+                fear_pct = (dist.get("fear", 0) / total) * 100
+                joy_pct = (dist.get("joy", 0) / total) * 100
 
-            if avg_compound < 0:
-                recommendations.append(
-                    "Conduct deeper analysis on pain points mentioned in negative feedback"
-                )
+                if anger_pct > 25:
+                    recommendations.append(
+                        "Priority: Address anger-inducing issues to improve satisfaction"
+                    )
+
+                if sadness_pct > 20:
+                    recommendations.append(
+                        "Investigate causes of sadness in customer feedback"
+                    )
+
+                if fear_pct > 15:
+                    recommendations.append(
+                        "Address customer concerns and anxieties to build trust"
+                    )
+
+                if joy_pct > 60:
+                    recommendations.append(
+                        "Leverage positive experiences in marketing and testimonials"
+                    )
 
         # Topic-based recommendations
         if topic_results:
@@ -227,7 +252,7 @@ class SynthesisAgent:
         self,
         feedback_id: str,
         texts: List[str],
-        sentiment_results: Dict,
+        emotion_results: Dict,
         topic_results: Dict,
         additional_insights: Optional[List[str]] = None,
     ) -> Dict:
@@ -237,7 +262,7 @@ class SynthesisAgent:
         Args:
             feedback_id: Feedback batch ID
             texts: Original feedback texts
-            sentiment_results: Sentiment analysis results
+            emotion_results: Emotion analysis results
             topic_results: Topic modeling results
             additional_insights: Optional additional insights
 
@@ -251,17 +276,17 @@ class SynthesisAgent:
             summary = self.generate_summary(texts)
 
             # Generate insights
-            sentiment_insights = self.synthesize_sentiment_insights(sentiment_results)
+            emotion_insights = self.synthesize_emotion_insights(emotion_results)
             topic_insights = self.synthesize_topic_insights(topic_results)
 
             # Combine all insights
-            all_insights = sentiment_insights + topic_insights
+            all_insights = emotion_insights + topic_insights
             if additional_insights:
                 all_insights.extend(additional_insights)
 
             # Generate recommendations
             recommendations = self.generate_recommendations(
-                sentiment_results, topic_results
+                emotion_results, topic_results
             )
 
             report = {
@@ -272,7 +297,8 @@ class SynthesisAgent:
                 "statistics": {
                     "total_feedback": len(texts),
                     "topics_identified": topic_results.get("num_topics", 0),
-                    "average_sentiment": sentiment_results.get("average_compound", 0),
+                    "dominant_emotion": emotion_results.get("dominant_emotion", "neutral"),
+                    "emotion_diversity": emotion_results.get("emotion_diversity", 0),
                 },
             }
 
@@ -302,7 +328,9 @@ Feedback Analysis: {stats.get('total_feedback', 0)} responses analyzed
 Key Findings:
 {chr(10).join(f'• {insight}' for insight in insights)}
 
-Overall Sentiment: {'Positive' if stats.get('average_sentiment', 0) > 0 else 'Negative' if stats.get('average_sentiment', 0) < 0 else 'Neutral'}
+Dominant Emotion: {stats.get('dominant_emotion', 'neutral').capitalize()}
+
+Emotional Diversity: {stats.get('emotion_diversity', 0):.2f}
 
 Topics Identified: {stats.get('topics_identified', 0)} major themes
 

@@ -72,12 +72,12 @@ class AgentOrchestrator:
 
                 logger.info(f"Ingestion complete: {len(cleaned_texts)} valid texts")
 
-                # Step 2: Analysis (Sentiment + Topics)
-                logger.info("Step 2/4: Analysis (Sentiment + Topics)")
+                # Step 2: Analysis (Emotions + Topics)
+                logger.info("Step 2/4: Analysis (Emotions + Topics)")
                 analysis_result = self.analysis_agent.analyze(
                     texts=cleaned_texts,
                     include_topics=include_topics,
-                    include_sentiment=True,
+                    include_emotions=True,
                 )
 
                 logger.info("Analysis complete")
@@ -107,7 +107,7 @@ class AgentOrchestrator:
                 report = self.synthesis_agent.synthesize_report(
                     feedback_id=feedback_id,
                     texts=cleaned_texts,
-                    sentiment_results=analysis_result.get("sentiment", {}),
+                    emotion_results=analysis_result.get("emotions", {}),
                     topic_results=analysis_result.get("topics", {}),
                     additional_insights=additional_insights,
                 )
@@ -124,7 +124,7 @@ class AgentOrchestrator:
                     "success": True,
                     "feedback_id": feedback_id,
                     "status": "completed",
-                    "sentiment": analysis_result.get("sentiment", {}),
+                    "emotions": analysis_result.get("emotions", {}),
                     "topics": analysis_result.get("topics", {}),
                     "report": report,
                     "statistics": {
@@ -184,7 +184,7 @@ class AgentOrchestrator:
             analysis_result = self.analysis_agent.analyze(
                 texts=texts,
                 include_topics=options.get("include_topics", True),
-                include_sentiment=True,
+                include_emotions=True,
             )
 
             # Generate report
@@ -193,7 +193,7 @@ class AgentOrchestrator:
             report = self.synthesis_agent.synthesize_report(
                 feedback_id=feedback_id,
                 texts=texts,
-                sentiment_results=analysis_result.get("sentiment", {}),
+                emotion_results=analysis_result.get("emotions", {}),
                 topic_results=analysis_result.get("topics", {}),
                 additional_insights=additional_insights,
             )
@@ -206,7 +206,7 @@ class AgentOrchestrator:
                 "success": True,
                 "feedback_id": feedback_id,
                 "status": "completed",
-                "sentiment": analysis_result.get("sentiment", {}),
+                "emotions": analysis_result.get("emotions", {}),
                 "topics": analysis_result.get("topics", {}),
                 "report": report,
             }

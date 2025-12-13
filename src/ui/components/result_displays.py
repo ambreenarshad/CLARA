@@ -5,10 +5,9 @@ Result Display Components for Analysis Results
 import streamlit as st
 from typing import Dict, Any, List
 from src.ui.utils.formatters import (
-    format_sentiment_score,
-    format_sentiment_label,
-    format_sentiment_emoji,
-    format_sentiment_color,
+    format_emotion_label,
+    format_emotion_emoji,
+    format_emotion_color,
     format_large_number,
     format_topic_label,
     truncate_text
@@ -26,20 +25,19 @@ def display_overview(analysis_results: Dict[str, Any]):
 
     # Extract data
     feedback_id = analysis_results.get('feedback_id', 'N/A')
-    sentiment = analysis_results.get('sentiment', {})
+    emotions = analysis_results.get('emotions', {})
     topics = analysis_results.get('topics', {})
 
     # Key metrics
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        compound = sentiment.get('average_compound', 0)
-        emoji = format_sentiment_emoji(compound)
-        label = format_sentiment_label(compound)
+        dominant_emotion = emotions.get('dominant_emotion', 'neutral')
+        emoji = format_emotion_emoji(dominant_emotion)
+        label = format_emotion_label(dominant_emotion)
         st.metric(
-            "Overall Sentiment",
-            f"{emoji} {label}",
-            delta=f"{compound:+.2f}" if compound != 0 else None
+            "Dominant Emotion",
+            f"{emoji} {label}"
         )
 
     with col2:
@@ -47,79 +45,80 @@ def display_overview(analysis_results: Dict[str, Any]):
         st.metric("Topics Discovered", num_topics)
 
     with col3:
-        distribution = sentiment.get('sentiment_distribution', {})
-        positive_count = distribution.get('positive', 0)
-        st.metric("Positive Feedback", positive_count)
+        distribution = emotions.get('emotion_distribution', {})
+        joy_count = distribution.get('joy', 0)
+        st.metric("Joyful Feedback", joy_count)
 
     with col4:
-        outliers = topics.get('outliers', 0)
-        st.metric("Outliers", outliers, help="Feedback items that don't fit into any topic")
+        diversity = emotions.get('emotion_diversity', 0)
+        st.metric("Emotional Diversity", f"{diversity:.2f}", help="Range from 0 (uniform) to 1 (diverse)")
 
     # Feedback ID
     st.caption(f"**Feedback Batch ID:** `{feedback_id}`")
 
 
-def display_sentiment_analysis(sentiment_data: Dict[str, Any]):
+def display_emotion_analysis(emotion_data: Dict[str, Any]):
     """
-    Display detailed sentiment analysis results
+    Display detailed emotion analysis results
 
     Args:
-        sentiment_data: Sentiment analysis dictionary
+        emotion_data: Emotion analysis dictionary
     """
-    st.subheader("😊 Sentiment Analysis")
+    st.subheader("😊 Emotion Analysis")
 
-    # Sentiment scores
-    st.markdown("### Aggregate Scores")
+    # Average emotion scores
+    st.markdown("### Average Emotion Scores")
 
-    col1, col2, col3, col4 = st.columns(4)
+    avg_scores = emotion_data.get('average_scores', {})
 
-    with col1:
-        compound = sentiment_data.get('average_compound', 0)
-        color = format_sentiment_color(compound)
-        st.markdown(f"**Compound Score**")
-        st.markdown(f"<h2 style='color: {color};'>{compound:.3f}</h2>", unsafe_allow_html=True)
-        st.caption("Range: -1 (negative) to +1 (positive)")
+    # Create 3 rows with 2 emotions each
+    emotions = ['joy', 'sadness', 'anger', 'fear', 'surprise', 'neutral']
 
-    with col2:
-        positive = sentiment_data.get('average_positive', 0)
-        st.metric("Positive Score", f"{positive:.3f}")
+    for i in range(0, 6, 3):
+        cols = st.columns(3)
+        for j, col in enumerate(cols):
+            if i + j < len(emotions):
+                emotion = emotions[i + j]
+                score = avg_scores.get(emotion, 0)
+                emoji = format_emotion_emoji(emotion)
+                label = format_emotion_label(emotion)
+                color = format_emotion_color(emotion)
 
-    with col3:
-        neutral = sentiment_data.get('average_neutral', 0)
-        st.metric("Neutral Score", f"{neutral:.3f}")
-
-    with col4:
-        negative = sentiment_data.get('average_negative', 0)
-        st.metric("Negative Score", f"{negative:.3f}")
+                with col:
+                    st.markdown(f"**{emoji} {label}**")
+                    st.progress(score)
+                    st.caption(f"{score:.1%}")
 
     # Distribution
-    st.markdown("### Sentiment Distribution")
+    st.markdown("### Emotion Distribution")
 
-    distribution = sentiment_data.get('sentiment_distribution', {})
+    distribution = emotion_data.get('emotion_distribution', {})
+    dominant_emotion = emotion_data.get('dominant_emotion', 'neutral')
 
-    col1, col2, col3 = st.columns(3)
+    # Create 3 rows with 2 emotions each
+    for i in range(0, 6, 3):
+        cols = st.columns(3)
+        for j, col in enumerate(cols):
+            if i + j < len(emotions):
+                emotion = emotions[i + j]
+                count = distribution.get(emotion, 0)
+                emoji = format_emotion_emoji(emotion)
+                label = format_emotion_label(emotion)
 
-    with col1:
-        positive_count = distribution.get('positive', 0)
-        st.success(f"😊 **Positive:** {positive_count}")
-
-    with col2:
-        neutral_count = distribution.get('neutral', 0)
-        st.info(f"😐 **Neutral:** {neutral_count}")
-
-    with col3:
-        negative_count = distribution.get('negative', 0)
-        st.error(f"😞 **Negative:** {negative_count}")
+                with col:
+                    is_dominant = (emotion == dominant_emotion)
+                    if is_dominant:
+                        st.success(f"{emoji} **{label}:** {count} ⭐")
+                    else:
+                        st.info(f"{emoji} **{label}:** {count}")
 
     # Percentage breakdown
-    total = positive_count + neutral_count + negative_count
+    total = sum(distribution.values())
 
     if total > 0:
-        pos_pct = (positive_count / total) * 100
-        neu_pct = (neutral_count / total) * 100
-        neg_pct = (negative_count / total) * 100
-
-        st.caption(f"Positive: {pos_pct:.1f}% | Neutral: {neu_pct:.1f}% | Negative: {neg_pct:.1f}%")
+        percentages = [f"{format_emotion_label(e)}: {(distribution.get(e, 0) / total) * 100:.1f}%"
+                      for e in emotions]
+        st.caption(" | ".join(percentages))
 
 
 def display_topic_modeling(topics_data: Dict[str, Any]):
@@ -223,17 +222,17 @@ def display_complete_results(analysis_results: Dict[str, Any]):
         analysis_results: Complete analysis results dictionary
     """
     # Tabs for different result sections
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "😊 Sentiment", "🏷️ Topics", "📝 Report"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "😊 Emotions", "🏷️ Topics", "📝 Report"])
 
     with tab1:
         display_overview(analysis_results)
 
     with tab2:
-        sentiment = analysis_results.get('sentiment', {})
-        if sentiment:
-            display_sentiment_analysis(sentiment)
+        emotions = analysis_results.get('emotions', {})
+        if emotions:
+            display_emotion_analysis(emotions)
         else:
-            st.warning("No sentiment analysis data available.")
+            st.warning("No emotion analysis data available.")
 
     with tab3:
         topics = analysis_results.get('topics', {})
@@ -278,7 +277,7 @@ def display_loading_stages(stage: str = "Initializing"):
     stages = {
         "Initializing": 0,
         "Data Ingestion": 25,
-        "Sentiment Analysis": 50,
+        "Emotion Analysis": 50,
         "Topic Modeling": 75,
         "Synthesis": 90,
         "Complete": 100
