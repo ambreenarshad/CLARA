@@ -2,9 +2,12 @@
 
 from typing import Dict
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from src.agents.orchestrator import get_orchestrator
+from src.db.database import get_db
+from src.db.models import User
 from src.models.schemas import (
     AnalysisRequest,
     AnalysisResponse,
@@ -12,6 +15,7 @@ from src.models.schemas import (
     FeedbackUploadRequest,
     FeedbackUploadResponse,
 )
+from src.services.auth import get_current_user
 from src.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -27,12 +31,18 @@ router = APIRouter(prefix="/api/v1", tags=["feedback"])
     summary="Upload Feedback",
     description="Upload feedback data for analysis",
 )
-async def upload_feedback(request: FeedbackUploadRequest) -> FeedbackUploadResponse:
+async def upload_feedback(
+    request: FeedbackUploadRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> FeedbackUploadResponse:
     """
     Upload feedback data.
 
     Args:
         request: Feedback upload request with list of feedback texts
+        current_user: Authenticated user
+        db: Database session
 
     Returns:
         FeedbackUploadResponse: Upload confirmation with feedback ID
@@ -40,15 +50,19 @@ async def upload_feedback(request: FeedbackUploadRequest) -> FeedbackUploadRespo
     Raises:
         HTTPException: If upload fails
     """
-    logger.info(f"Received feedback upload request with {len(request.feedback)} items")
+    logger.info(f"User {current_user.username} uploading {len(request.feedback)} feedback entries")
 
     try:
         orchestrator = get_orchestrator()
 
-        # Process feedback through ingestion only
+        # Process feedback through ingestion with database persistence
         result = orchestrator.ingestion_agent.ingest_feedback(
             feedback=request.feedback,
             metadata=request.metadata,
+            user_id=current_user.id,
+            batch_name=request.batch_name,
+            description=request.description,
+            db=db,
         )
 
         if not result["success"]:
@@ -61,12 +75,14 @@ async def upload_feedback(request: FeedbackUploadRequest) -> FeedbackUploadRespo
         feedback_id = result["feedback_id"]
         ingested_count = result["ingested_count"]
 
-        logger.info(f"Feedback uploaded successfully: {feedback_id}")
+        logger.info(f"Feedback uploaded successfully: {feedback_id} by user {current_user.username}")
 
         return FeedbackUploadResponse(
             feedback_id=feedback_id,
+            user_id=current_user.id,
             status="success",
             count=ingested_count,
+            batch_name=request.batch_name,
         )
 
     except HTTPException:
@@ -85,12 +101,18 @@ async def upload_feedback(request: FeedbackUploadRequest) -> FeedbackUploadRespo
     summary="Analyze Feedback",
     description="Analyze uploaded feedback and generate comprehensive report",
 )
-async def analyze_feedback(request: AnalysisRequest) -> Dict:
+async def analyze_feedback(
+    request: AnalysisRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict:
     """
     Analyze uploaded feedback.
 
     Args:
         request: Analysis request with feedback ID
+        current_user: Authenticated user
+        db: Database session
 
     Returns:
         Dict: Complete analysis results with emotions, topics, and insights
@@ -98,15 +120,17 @@ async def analyze_feedback(request: AnalysisRequest) -> Dict:
     Raises:
         HTTPException: If analysis fails or feedback ID not found
     """
-    logger.info(f"Received analysis request for feedback_id: {request.feedback_id}")
+    logger.info(f"User {current_user.username} analyzing feedback_id: {request.feedback_id}")
 
     try:
         orchestrator = get_orchestrator()
 
-        # Run analysis on existing feedback
+        # Run analysis on existing feedback with database persistence
         result = orchestrator.analyze_existing_feedback(
             feedback_id=request.feedback_id,
             options=request.options,
+            user_id=current_user.id,
+            db=db,
         )
 
         if not result["success"]:
@@ -139,12 +163,18 @@ async def analyze_feedback(request: AnalysisRequest) -> Dict:
     summary="Upload and Analyze",
     description="Upload feedback and immediately analyze it (combined operation)",
 )
-async def process_feedback(request: FeedbackUploadRequest) -> Dict:
+async def process_feedback(
+    request: FeedbackUploadRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict:
     """
     Upload and analyze feedback in one operation.
 
     Args:
         request: Feedback upload request
+        current_user: Authenticated user
+        db: Database session
 
     Returns:
         Dict: Complete analysis results
@@ -153,16 +183,20 @@ async def process_feedback(request: FeedbackUploadRequest) -> Dict:
         HTTPException: If processing fails
     """
     logger.info(
-        f"Received combined process request with {len(request.feedback)} items"
+        f"User {current_user.username} processing {len(request.feedback)} feedback entries"
     )
 
     try:
         orchestrator = get_orchestrator()
 
-        # Process complete pipeline
+        # Process complete pipeline with database persistence
         result = orchestrator.process_feedback(
             feedback=request.feedback,
             metadata=request.metadata,
+            user_id=current_user.id,
+            batch_name=request.batch_name,
+            description=request.description,
+            db=db,
             options={"include_summary": True, "include_topics": True},
         )
 
@@ -193,7 +227,11 @@ async def process_feedback(request: FeedbackUploadRequest) -> Dict:
     summary="Get Feedback Summary",
     description="Get summary of uploaded feedback batch",
 )
-async def get_feedback_summary(feedback_id: str) -> Dict:
+async def get_feedback_summary(
+    feedback_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict:
     """
     Get feedback batch summary.
 
@@ -238,28 +276,53 @@ async def get_feedback_summary(feedback_id: str) -> Dict:
     "/statistics",
     response_model=Dict,
     summary="Get System Statistics",
-    description="Get overall system statistics",
+    description="Get overall system statistics for current user",
 )
-async def get_statistics() -> Dict:
+async def get_statistics(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict:
     """
-    Get system statistics.
+    Get system statistics for current user.
+
+    Args:
+        current_user: Authenticated user
+        db: Database session
 
     Returns:
-        Dict: System statistics including document counts
+        Dict: User statistics including document counts and feedback batches
 
     Raises:
         HTTPException: If retrieval fails
     """
-    logger.info("Received request for system statistics")
+    logger.info(f"Retrieving statistics for user: {current_user.username}")
 
     try:
-        orchestrator = get_orchestrator()
+        from src.db.models import FeedbackBatch, AnalysisResult
 
-        stats = orchestrator.ingestion_agent.get_statistics()
+        # Get user-specific statistics from database
+        total_batches = db.query(FeedbackBatch).filter(
+            FeedbackBatch.user_id == current_user.id
+        ).count()
+
+        total_feedback = db.query(FeedbackBatch).filter(
+            FeedbackBatch.user_id == current_user.id
+        ).with_entities(FeedbackBatch.total_count).all()
+        total_feedback_count = sum([count[0] for count in total_feedback])
+
+        total_analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.user_id == current_user.id
+        ).count()
 
         return {
             "success": True,
-            "statistics": stats,
+            "statistics": {
+                "total_batches": total_batches,
+                "total_feedback": total_feedback_count,
+                "total_analyses": total_analyses,
+                "user_id": current_user.id,
+                "username": current_user.username,
+            },
         }
 
     except Exception as e:

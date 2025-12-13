@@ -29,6 +29,14 @@ pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 PyYAML>=6.0.1
 
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
 # API & File Handling
 python-multipart>=0.0.9
 

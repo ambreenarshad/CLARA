@@ -123,13 +123,21 @@ class DataIngestionAgent:
         self,
         feedback: List[str],
         metadata: Optional[List[Dict]] = None,
+        user_id: Optional[str] = None,
+        batch_name: Optional[str] = None,
+        description: Optional[str] = None,
+        db=None,
     ) -> Dict:
         """
-        Ingest and store feedback in vector database.
+        Ingest and store feedback in vector database and SQL database.
 
         Args:
             feedback: List of feedback texts
             metadata: Optional metadata for each feedback
+            user_id: Optional user ID for database persistence
+            batch_name: Optional name for the feedback batch
+            description: Optional description of the feedback batch
+            db: Optional database session for persistence
 
         Returns:
             Dict: Ingestion results with feedback ID and stats
@@ -175,6 +183,33 @@ class DataIngestionAgent:
                 logger.info(
                     f"Ingested {len(doc_ids)} documents with feedback_id: {feedback_id}"
                 )
+
+                # Store in SQL database if user_id and db session provided
+                if user_id and db:
+                    try:
+                        from src.db.models import FeedbackBatch
+
+                        feedback_batch = FeedbackBatch(
+                            id=feedback_id,
+                            user_id=user_id,
+                            name=batch_name,
+                            description=description,
+                            total_count=len(feedback),
+                            valid_count=validation_result["valid_count"],
+                            invalid_count=validation_result["invalid_count"],
+                            upload_method="api",
+                        )
+
+                        db.add(feedback_batch)
+                        db.commit()
+                        db.refresh(feedback_batch)
+
+                        logger.info(f"Feedback batch saved to database: {feedback_id}")
+
+                    except Exception as db_error:
+                        logger.error(f"Error saving to database: {str(db_error)}", exc_info=True)
+                        db.rollback()
+                        # Continue even if database save fails
 
                 return {
                     "success": True,

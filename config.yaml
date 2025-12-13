@@ -37,6 +37,20 @@ nlp:
   emotion_threshold: 0.15  # Minimum score to consider emotion present
   summary_ratio: 0.2  # Summarize to 20% of original length
 
+# Database Configuration
+database:
+  url: "sqlite:///./nlp_feedback.db"  # SQLite for development
+  # For PostgreSQL in production:
+  # url: "postgresql://user:password@localhost:5432/nlp_feedback"
+  pool_size: 10
+  max_overflow: 20
+
+# Security Configuration
+security:
+  secret_key: "your-secret-key-change-in-production"  # Change this in production!
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+
 # Logging Configuration
 logging:
   level: "INFO"

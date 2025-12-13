@@ -5,6 +5,7 @@ Multi-Agent Feedback Analysis System UI
 
 import streamlit as st
 from src.ui.utils.session_state import initialize_session_state
+from src.ui.utils.auth import init_session_state as init_auth_state, is_authenticated
 
 
 # Page configuration
@@ -20,6 +21,7 @@ st.set_page_config(
 
 # Initialize session state
 initialize_session_state()
+init_auth_state()
 
 # Custom CSS
 st.markdown("""
@@ -83,6 +85,14 @@ st.markdown("""
 # Header
 st.markdown('<div class="main-title">🤖 CLARA NLP</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Multi-Agent Feedback Analysis System</div>', unsafe_allow_html=True)
+
+# Authentication status
+if is_authenticated():
+    user_info = st.session_state.get("user_info", {})
+    st.success(f"✅ Logged in as **{user_info.get('username', 'User')}**")
+else:
+    st.warning("⚠️ You are not logged in. Please login to access all features.")
+    st.info("👉 Navigate to the **🔐 Login** page from the sidebar to sign in")
 
 st.markdown("---")
 

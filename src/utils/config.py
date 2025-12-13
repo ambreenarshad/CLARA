@@ -72,6 +72,24 @@ class LoggingConfig(BaseSettings):
     backup_count: int = Field(default=5)
 
 
+class DatabaseConfig(BaseSettings):
+    """Database configuration."""
+    model_config = SettingsConfigDict(env_prefix='DATABASE_', extra='ignore')
+
+    url: str = Field(default="sqlite:///./nlp_feedback.db")
+    pool_size: int = Field(default=10)
+    max_overflow: int = Field(default=20)
+
+
+class SecurityConfig(BaseSettings):
+    """Security configuration."""
+    model_config = SettingsConfigDict(env_prefix='SECURITY_', extra='ignore')
+
+    secret_key: str = Field(default="your-secret-key-change-in-production")
+    algorithm: str = Field(default="HS256")
+    access_token_expire_minutes: int = Field(default=30)
+
+
 class Config(BaseSettings):
     """Main configuration class."""
     model_config = SettingsConfigDict(
@@ -87,6 +105,8 @@ class Config(BaseSettings):
     agents: AgentConfig = Field(default_factory=AgentConfig)
     nlp: NLPConfig = Field(default_factory=NLPConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    security: SecurityConfig = Field(default_factory=SecurityConfig)
 
 
 def load_config(config_path: Optional[str] = None) -> Config:
@@ -116,6 +136,8 @@ def load_config(config_path: Optional[str] = None) -> Config:
     agents = AgentConfig(**config_dict.get("agents", {}))
     nlp = NLPConfig(**config_dict.get("nlp", {}))
     logging_config = LoggingConfig(**config_dict.get("logging", {}))
+    database = DatabaseConfig(**config_dict.get("database", {}))
+    security = SecurityConfig(**config_dict.get("security", {}))
 
     config = Config(
         models=models,
@@ -123,7 +145,9 @@ def load_config(config_path: Optional[str] = None) -> Config:
         api=api,
         agents=agents,
         nlp=nlp,
-        logging=logging_config
+        logging=logging_config,
+        database=database,
+        security=security
     )
 
     # Ensure directories exist

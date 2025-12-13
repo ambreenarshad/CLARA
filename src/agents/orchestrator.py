@@ -32,6 +32,10 @@ class AgentOrchestrator:
         feedback: List[str],
         metadata: Optional[List[Dict]] = None,
         options: Optional[Dict] = None,
+        user_id: Optional[str] = None,
+        batch_name: Optional[str] = None,
+        description: Optional[str] = None,
+        db=None,
     ) -> Dict:
         """
         Complete feedback processing pipeline.
@@ -58,6 +62,10 @@ class AgentOrchestrator:
                 ingestion_result = self.ingestion_agent.ingest_feedback(
                     feedback=feedback,
                     metadata=metadata,
+                    user_id=user_id,
+                    batch_name=batch_name,
+                    description=description,
+                    db=db,
                 )
 
                 if not ingestion_result["success"]:
@@ -119,6 +127,33 @@ class AgentOrchestrator:
 
                 logger.info("Synthesis complete")
 
+                # Save analysis results to database if user_id and db provided
+                if user_id and db:
+                    try:
+                        from src.db.models import AnalysisResult
+
+                        analysis_record = AnalysisResult(
+                            feedback_batch_id=feedback_id,
+                            user_id=user_id,
+                            emotion_scores=analysis_result.get("emotions", {}),
+                            topic_results=analysis_result.get("topics", {}),
+                            summary=report.get("summary"),
+                            key_insights=report.get("key_insights", []),
+                            recommendations=report.get("recommendations", []),
+                            analysis_options=options,
+                        )
+
+                        db.add(analysis_record)
+                        db.commit()
+                        db.refresh(analysis_record)
+
+                        logger.info(f"Analysis results saved to database for feedback: {feedback_id}")
+
+                    except Exception as db_error:
+                        logger.error(f"Error saving analysis to database: {str(db_error)}", exc_info=True)
+                        db.rollback()
+                        # Continue even if database save fails
+
                 # Compile final result
                 result = {
                     "success": True,
@@ -153,6 +188,8 @@ class AgentOrchestrator:
         self,
         feedback_id: str,
         options: Optional[Dict] = None,
+        user_id: Optional[str] = None,
+        db=None,
     ) -> Dict:
         """
         Analyze already ingested feedback.
@@ -201,6 +238,33 @@ class AgentOrchestrator:
             if options.get("include_summary", True):
                 summary = self.synthesis_agent.generate_summary(texts)
                 report["summary"] = summary
+
+            # Save analysis results to database if user_id and db provided
+            if user_id and db:
+                try:
+                    from src.db.models import AnalysisResult
+
+                    analysis_record = AnalysisResult(
+                        feedback_batch_id=feedback_id,
+                        user_id=user_id,
+                        emotion_scores=analysis_result.get("emotions", {}),
+                        topic_results=analysis_result.get("topics", {}),
+                        summary=report.get("summary"),
+                        key_insights=report.get("key_insights", []),
+                        recommendations=report.get("recommendations", []),
+                        analysis_options=options,
+                    )
+
+                    db.add(analysis_record)
+                    db.commit()
+                    db.refresh(analysis_record)
+
+                    logger.info(f"Analysis results saved to database for feedback: {feedback_id}")
+
+                except Exception as db_error:
+                    logger.error(f"Error saving analysis to database: {str(db_error)}", exc_info=True)
+                    db.rollback()
+                    # Continue even if database save fails
 
             result = {
                 "success": True,

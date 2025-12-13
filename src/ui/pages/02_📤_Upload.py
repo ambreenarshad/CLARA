@@ -5,6 +5,7 @@ Upload Page - Feedback Submission Interface (FIXED)
 import streamlit as st
 import time
 from src.ui.utils.session_state import initialize_session_state, add_uploaded_feedback, clear_upload_data
+from src.ui.utils.auth import init_session_state as init_auth_state, require_authentication
 from src.ui.components.upload_handlers import (
     handle_text_input,
     handle_csv_upload,
@@ -20,6 +21,10 @@ from src.ui.utils.formatters import format_large_number
 
 # Initialize session
 initialize_session_state()
+init_auth_state()
+
+# Require authentication
+require_authentication()
 
 # Page header
 st.title("📤 Upload Feedback")

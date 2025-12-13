@@ -19,6 +19,15 @@ class FeedbackUploadRequest(BaseModel):
         default=None,
         description="Optional metadata for each feedback entry",
     )
+    batch_name: Optional[str] = Field(
+        default=None,
+        description="Optional name for the feedback batch",
+        max_length=200,
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Optional description of the feedback batch",
+    )
 
     @field_validator("feedback")
     @classmethod
@@ -79,8 +88,10 @@ class FeedbackUploadResponse(BaseModel):
     """Response model for feedback upload."""
 
     feedback_id: str = Field(..., description="Unique ID for the uploaded feedback")
+    user_id: str = Field(..., description="User ID who uploaded the feedback")
     status: str = Field(..., description="Upload status")
     count: int = Field(..., description="Number of feedback entries uploaded")
+    batch_name: Optional[str] = Field(None, description="Name of the feedback batch")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     model_config = {

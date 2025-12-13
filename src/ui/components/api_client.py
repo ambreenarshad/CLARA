@@ -29,12 +29,28 @@ class APIClient:
         self.timeout = 300.0  # 5 minutes timeout for long-running analyses
         self._initialized = True
 
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """
+        Get authentication headers from session state.
+
+        Returns:
+            Headers dict with Bearer token if authenticated
+        """
+        try:
+            import streamlit as st
+            if hasattr(st, 'session_state') and st.session_state.get('access_token'):
+                return {"Authorization": f"Bearer {st.session_state.access_token}"}
+        except:
+            pass
+        return {}
+
     def _make_request(
         self,
         method: str,
         endpoint: str,
         data: Optional[Dict] = None,
         params: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
         max_retries: int = 3
     ) -> Dict[str, Any]:
         """
@@ -45,6 +61,7 @@ class APIClient:
             endpoint: API endpoint path
             data: JSON data for request body
             params: Query parameters
+            headers: Additional headers (auth headers added automatically)
             max_retries: Maximum number of retry attempts
 
         Returns:
@@ -55,13 +72,18 @@ class APIClient:
         """
         url = f"{self.base_url}{endpoint}"
 
+        # Merge auth headers with provided headers
+        request_headers = self._get_auth_headers()
+        if headers:
+            request_headers.update(headers)
+
         for attempt in range(max_retries):
             try:
                 with httpx.Client(timeout=self.timeout) as client:
                     if method.upper() == "GET":
-                        response = client.get(url, params=params)
+                        response = client.get(url, params=params, headers=request_headers)
                     elif method.upper() == "POST":
-                        response = client.post(url, json=data, params=params)
+                        response = client.post(url, json=data, params=params, headers=request_headers)
                     else:
                         raise ValueError(f"Unsupported HTTP method: {method}")
 

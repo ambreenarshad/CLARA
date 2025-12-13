@@ -7,8 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes import router as api_router
+from src.api.auth_routes import router as auth_router
 from src.utils.config import get_config
 from src.utils.logging_config import get_logger, setup_logging
+from src.db.database import create_tables
 
 # Initialize logging
 config = get_config()
@@ -34,6 +36,15 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting NLP Agentic AI Feedback Analysis System")
     logger.info(f"Configuration loaded from: {config}")
+
+    # Initialize database
+    try:
+        logger.info("Initializing database...")
+        create_tables()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}", exc_info=True)
+        raise
 
     # Initialize services (lazy loading will happen on first use)
     from src.services.embeddings import get_embedding_service
@@ -80,6 +91,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router)
+app.include_router(auth_router, prefix="/api/v1")
 
 
 @app.get("/")
