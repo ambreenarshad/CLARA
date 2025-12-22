@@ -1,7 +1,5 @@
 """NLP processing services: emotion analysis, topic modeling, and summarization."""
-
 from typing import Dict, List, Optional, Tuple
-
 import numpy as np
 import pandas as pd
 import spacy
@@ -18,22 +16,27 @@ logger = get_logger(__name__)
 
 
 class EmotionAnalyzer:
-    """Hugging Face transformer-based emotion analysis service."""
+    """Hybrid emotion analysis service combining sentiment analysis with emotion detection."""
 
     def __init__(self, model_name: Optional[str] = None):
-        """Initialize Hugging Face emotion analyzer."""
+        """Initialize hybrid emotion analyzer with sentiment model."""
         config = get_config()
-        self.model_name = model_name or config.models.emotion_model
+        # Use a sentiment model that works better for reviews
+        self.sentiment_model_name = "cardiffnlp/twitter-roberta-base-sentiment-latest"
         self.emotion_categories = config.models.emotion_categories
 
-        logger.info(f"Initializing emotion analyzer with model: {self.model_name}")
+        logger.info(f"Initializing emotion analyzer with sentiment model: {self.sentiment_model_name}")
 
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            # Load sentiment analysis model (works better for reviews)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.sentiment_model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.sentiment_model_name)
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.model.to(self.device)
             self.model.eval()
+
+            # Sentiment labels: negative, neutral, positive
+            self.sentiment_labels = ["negative", "neutral", "positive"]
 
             logger.info(f"Emotion analyzer ready on device: {self.device}")
         except Exception as e:
@@ -42,7 +45,7 @@ class EmotionAnalyzer:
 
     def analyze_emotion(self, text: str) -> Dict[str, float]:
         """
-        Analyze emotions of a single text.
+        Analyze emotions using hybrid sentiment + keyword approach.
 
         Args:
             text: Input text to analyze
@@ -63,7 +66,7 @@ class EmotionAnalyzer:
             }
 
         try:
-            # Tokenize input
+            # Step 1: Get sentiment scores (negative, neutral, positive)
             inputs = self.tokenizer(
                 text,
                 return_tensors="pt",
@@ -72,17 +75,117 @@ class EmotionAnalyzer:
                 padding=True
             ).to(self.device)
 
-            # Get predictions
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 logits = outputs.logits
-                probabilities = F.softmax(logits, dim=-1)[0]
+                sentiment_probs = F.softmax(logits, dim=-1)[0].cpu()
 
-            # Convert to emotion scores
+            negative_score = float(sentiment_probs[0])
+            neutral_score = float(sentiment_probs[1])
+            positive_score = float(sentiment_probs[2])
+
+            # Step 2: Map sentiment to emotions using keyword analysis
+            text_lower = text.lower()
+
+            # Initialize emotion scores
             emotion_scores = {
-                emotion: float(probabilities[i].cpu().item())
-                for i, emotion in enumerate(self.emotion_categories)
+                "joy": 0.0,
+                "sadness": 0.0,
+                "anger": 0.0,
+                "fear": 0.0,
+                "surprise": 0.0,
+                "neutral": neutral_score
             }
+
+            # Define keyword dictionaries
+            joy_keywords = ["excellent", "great", "love", "perfect", "amazing", "wonderful",
+                           "fantastic", "happy", "best", "quality", "solid", "good", "like",
+                           "sturdy", "well-made", "rock-solid", "quick", "painless"]
+            joy_count = sum(1 for word in joy_keywords if word in text_lower)
+
+            sadness_keywords = ["disappointed", "unfortunate", "sad", "uncomfortable",
+                               "regret", "poor", "falls short", "lacking", "miss",
+                               "prevent", "defeats", "slightly"]
+            sadness_count = sum(1 for word in sadness_keywords if word in text_lower)
+
+            anger_keywords = ["annoying", "frustrating", "terrible", "awful", "hate",
+                             "ridiculous", "unacceptable", "worst"]
+            anger_count = sum(1 for word in anger_keywords if word in text_lower)
+
+            fear_keywords = ["worried", "concerned", "afraid", "anxious", "nervous"]
+            fear_count = sum(1 for word in fear_keywords if word in text_lower)
+
+            surprise_keywords = ["surprising", "unexpected", "amazed", "shocked", "wow"]
+            surprise_count = sum(1 for word in surprise_keywords if word in text_lower)
+
+            # Determine sentiment type
+            max_sentiment = max(positive_score, negative_score, neutral_score)
+
+            # Mixed sentiment: positive and negative both significant
+            is_mixed = (positive_score > 0.2 and negative_score > 0.2) or \
+                      (positive_score > 0.3 and negative_score > 0.15) or \
+                      (positive_score > 0.15 and negative_score > 0.3)
+
+            if is_mixed:
+                # Mixed review: distribute across emotions based on keywords and scores
+                base_joy = positive_score * 0.5
+                joy_boost = min(0.5, joy_count * 0.08)
+                emotion_scores["joy"] = base_joy + joy_boost * positive_score
+
+                base_sadness = negative_score * 0.5
+                sadness_boost = min(0.5, sadness_count * 0.08)
+                emotion_scores["sadness"] = base_sadness + sadness_boost * negative_score
+
+                # Add some anger if negative keywords present
+                if anger_count > 0:
+                    emotion_scores["anger"] = negative_score * (0.25 + min(0.25, anger_count * 0.1))
+                else:
+                    emotion_scores["anger"] = negative_score * 0.1
+
+                # Keep some neutral
+                emotion_scores["neutral"] = neutral_score * 0.4
+
+                if surprise_count > 0:
+                    emotion_scores["surprise"] = 0.1
+
+            elif positive_score > 0.4:
+                # Clear positive sentiment
+                if surprise_count > 0:
+                    emotion_scores["surprise"] = positive_score * 0.6
+                    emotion_scores["joy"] = positive_score * 0.4
+                else:
+                    base_joy = positive_score * 0.7
+                    joy_boost = min(0.3, joy_count * 0.05)
+                    emotion_scores["joy"] = base_joy + joy_boost
+
+            elif negative_score > 0.4:
+                # Clear negative sentiment
+                if anger_count > sadness_count and anger_count > 0:
+                    emotion_scores["anger"] = negative_score * 0.7
+                    emotion_scores["sadness"] = negative_score * 0.3
+                elif fear_count > 0:
+                    emotion_scores["fear"] = negative_score * 0.6
+                    emotion_scores["sadness"] = negative_score * 0.4
+                else:
+                    # Default to sadness for negative reviews
+                    base_sadness = negative_score * 0.7
+                    sadness_boost = min(0.3, sadness_count * 0.08)
+                    emotion_scores["sadness"] = base_sadness + sadness_boost
+                    emotion_scores["anger"] = negative_score * 0.15
+
+            else:
+                # Truly neutral or unclear - still try to extract emotions from keywords
+                if joy_count > 0:
+                    emotion_scores["joy"] = min(0.4, joy_count * 0.1)
+                if sadness_count > 0:
+                    emotion_scores["sadness"] = min(0.4, sadness_count * 0.1)
+                if anger_count > 0:
+                    emotion_scores["anger"] = min(0.3, anger_count * 0.1)
+
+            # Normalize scores to sum to 1.0
+            total = sum(emotion_scores.values())
+            if total > 0:
+                emotion_scores = {k: v / total for k, v in emotion_scores.items()}
 
             # Get dominant emotion
             dominant_emotion = max(emotion_scores.items(), key=lambda x: x[1])[0]

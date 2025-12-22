@@ -331,3 +331,190 @@ async def get_statistics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {str(e)}",
         )
+
+
+@router.get(
+    "/history/emotions",
+    response_model=Dict,
+    summary="Get Emotion Analysis History",
+    description="Get historical emotion analysis results for the current user",
+)
+async def get_emotion_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 10
+) -> Dict:
+    """
+    Get emotion analysis history for current user.
+
+    Args:
+        current_user: Authenticated user
+        db: Database session
+        limit: Maximum number of results to return (default: 10)
+
+    Returns:
+        Dict: Historical emotion analysis results
+
+    Raises:
+        HTTPException: If retrieval fails
+    """
+    logger.info(f"Retrieving emotion history for user: {current_user.username}")
+
+    try:
+        from src.db.models import FeedbackBatch, AnalysisResult
+
+        # Get analysis results for user, ordered by creation date (newest first)
+        analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.user_id == current_user.id
+        ).order_by(
+            AnalysisResult.created_at.desc()
+        ).limit(limit).all()
+
+        # Format results
+        history = []
+        for analysis in analyses:
+            # Get associated feedback batch info
+            batch = db.query(FeedbackBatch).filter(
+                FeedbackBatch.id == analysis.feedback_batch_id
+            ).first()
+
+            # Extract emotion data
+            emotion_data = analysis.emotion_scores or {}
+            average_scores = emotion_data.get("average_scores", {})
+            emotion_distribution = emotion_data.get("emotion_distribution", {})
+            dominant_emotion = emotion_data.get("dominant_emotion", "neutral")
+
+            history.append({
+                "analysis_id": analysis.id,
+                "feedback_batch_id": analysis.feedback_batch_id,
+                "batch_name": batch.name if batch else None,
+                "created_at": analysis.created_at.isoformat(),
+                "emotion_scores": {
+                    "average_scores": average_scores,
+                    "emotion_distribution": emotion_distribution,
+                    "dominant_emotion": dominant_emotion
+                },
+                "feedback_count": batch.total_count if batch else 0
+            })
+
+        return {
+            "success": True,
+            "count": len(history),
+            "history": history,
+            "user_id": current_user.id
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting emotion history: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}",
+        )
+
+
+@router.get(
+    "/history/emotions/aggregate",
+    response_model=Dict,
+    summary="Get Aggregated Emotion History",
+    description="Get aggregated emotion statistics across all user's analyses",
+)
+async def get_aggregated_emotion_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict:
+    """
+    Get aggregated emotion statistics across all analyses for current user.
+
+    Args:
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        Dict: Aggregated emotion statistics
+
+    Raises:
+        HTTPException: If retrieval fails
+    """
+    logger.info(f"Retrieving aggregated emotion history for user: {current_user.username}")
+
+    try:
+        from src.db.models import AnalysisResult
+
+        # Get all analysis results for user
+        analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.user_id == current_user.id
+        ).all()
+
+        if not analyses:
+            return {
+                "success": True,
+                "message": "No analysis history found",
+                "total_analyses": 0,
+                "aggregated_emotions": {
+                    "joy": 0.0,
+                    "sadness": 0.0,
+                    "anger": 0.0,
+                    "fear": 0.0,
+                    "surprise": 0.0,
+                    "neutral": 0.0
+                },
+                "emotion_distribution_total": {
+                    "joy": 0,
+                    "sadness": 0,
+                    "anger": 0,
+                    "fear": 0,
+                    "surprise": 0,
+                    "neutral": 0
+                }
+            }
+
+        # Aggregate emotion scores
+        emotion_sum = {
+            "joy": 0.0,
+            "sadness": 0.0,
+            "anger": 0.0,
+            "fear": 0.0,
+            "surprise": 0.0,
+            "neutral": 0.0
+        }
+
+        emotion_distribution_total = {
+            "joy": 0,
+            "sadness": 0,
+            "anger": 0,
+            "fear": 0,
+            "surprise": 0,
+            "neutral": 0
+        }
+
+        for analysis in analyses:
+            emotion_data = analysis.emotion_scores or {}
+            average_scores = emotion_data.get("average_scores", {})
+            distribution = emotion_data.get("emotion_distribution", {})
+
+            # Sum average scores
+            for emotion in emotion_sum.keys():
+                emotion_sum[emotion] += average_scores.get(emotion, 0.0)
+                emotion_distribution_total[emotion] += distribution.get(emotion, 0)
+
+        # Calculate averages
+        num_analyses = len(analyses)
+        aggregated_emotions = {
+            emotion: score / num_analyses
+            for emotion, score in emotion_sum.items()
+        }
+
+        return {
+            "success": True,
+            "total_analyses": num_analyses,
+            "aggregated_emotions": aggregated_emotions,
+            "emotion_distribution_total": emotion_distribution_total,
+            "user_id": current_user.id
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting aggregated emotion history: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}",
+        )
