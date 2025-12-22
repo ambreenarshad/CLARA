@@ -24,7 +24,7 @@ pandas>=2.2.0
 numpy>=1.26.0
 
 # Validation & Config
-pydantic>=2.6.0
+pydantic[email]>=2.6.0
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 PyYAML>=6.0.1
